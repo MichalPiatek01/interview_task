@@ -2,7 +2,7 @@ package com.example.interview;
 
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -15,16 +15,28 @@ final class GithubProxyService {
 
     public List<ResponseRepo> getRepositoriesForUser(String username) {
         GitHubRepo[] repos = githubClient.fetchRepositories(username);
+        List<ResponseRepo> result = new ArrayList<>();
 
-        return Arrays.stream(repos)
-                .filter(repo -> !repo.fork())
-                .map(repo -> {
-                    List<GitHubBranch> branches = Arrays.asList(githubClient.fetchBranches(username, repo.name()));
-                    List<ResponseBranch> responseBranches = branches.stream()
-                            .map(b -> new ResponseBranch(b.name(), b.commit().sha()))
-                            .toList();
-                    return new ResponseRepo(repo.name(), repo.owner().login(), responseBranches);
-                })
-                .toList();
+        for (GitHubRepo repo : repos) {
+            if (repo.fork()) {
+                continue;
+            }
+
+            List<ResponseBranch> branches = mapBranches(username, repo.name());
+            result.add(new ResponseRepo(repo.name(), repo.owner().login(), branches));
+        }
+
+        return result;
+    }
+
+    private List<ResponseBranch> mapBranches(String username, String repoName) {
+        GitHubBranch[] branches = githubClient.fetchBranches(username, repoName);
+        List<ResponseBranch> result = new ArrayList<>(branches.length);
+
+        for (GitHubBranch branch : branches) {
+            result.add(new ResponseBranch(branch.name(), branch.commit().sha()));
+        }
+
+        return result;
     }
 }
